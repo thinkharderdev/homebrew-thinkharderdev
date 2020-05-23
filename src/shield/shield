@@ -1,0 +1,150 @@
+#!/bin/bash
+
+# START
+set -e
+
+# VARIABLES
+NAME_OSX="Darwin"
+THIS_OS=$(uname -mrs)
+PROGNAME=$(basename $0)
+CONFIG=($HOME/.shield/)
+HOST_FILE=(/private/etc/hosts)
+COLOR_RED=`tput setaf 1`
+COLOR_GREEN=`tput setaf 2`
+COLOR_RESET=`tput sgr0`
+LIST="list"
+START_TAG="## SHIELD - List ad blocking"
+END_TAG="## END SHIELD"
+
+
+# Create sed cross system
+custom-sed() {
+    if [[ $THIS_OS = *$NAME_OSX* ]]; then
+        # Check if OSX and install GSED
+        if [ -x "$(command -v gsed)" ]; then
+            gsed "$@"
+        else
+            echo "${COLOR_RED}ERROR. You must install gsed if you are using OSX${COLOR_RESET}"
+            exit 1
+        fi
+    else
+        # Linux
+        sed "$@"
+    fi
+}
+export -f custom-sed
+
+
+# FUNCTIONS
+
+## HELP
+usage() {
+    if [ "$*" != "" ] ; then
+        echo "Error: $*"
+    fi
+
+    cat << EOF
+Usage: $PROGNAME [OPTION]
+Simple and efficient local ad blocking throughout the network.
+
+Options:
+status       Check if it's active or not
+update       Update the list of DNS to be blocked
+start        Activate blocking DNS.
+stop         Stop blocking DNS.
+refresh      Refresh block list
+--help       Display this usage message and exit
+EOF
+
+    exit 1
+}
+
+status() {
+    if grep -qF "$START_TAG" "$HOST_FILE";then
+        echo "${COLOR_GREEN}ENABLED${COLOR_RESET}"
+    else
+        echo "${COLOR_RED}DISABLED${COLOR_RESET}"
+    fi
+}
+
+update() {
+    # Make conf folder
+    rm -f $CONFIG$LIST
+
+    mkdir -p $CONFIG
+    # Download DNS list
+    curl -L -s "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts" -o "$CONFIG$LIST"
+    # Clear list
+    ## Remove standard entries
+    custom-sed -i.bak '0,/^# Custom host records are listed here./d' "$CONFIG$LIST"
+    ## Remove comments
+    custom-sed -i.bak '/^#/ d' "$CONFIG$LIST"
+
+    ## Add start tag DNS list in first line
+    custom-sed -i.bak "1i\\$START_TAG" "$CONFIG$LIST"
+    ## Add end tag DNS list in first line
+    echo $END_TAG >> "$CONFIG/$LIST"
+    # Remove temp file
+    rm "$CONFIG$LIST.bak"
+    # Notify user
+    echo "${COLOR_GREEN}List updated!${COLOR_RESET}"
+}
+
+start() {
+    update
+    # Add List to host file
+    cat "$CONFIG/$LIST" >> "$HOST_FILE"
+    # Notify user
+    echo "${COLOR_GREEN}ENABLED!${COLOR_RESET}"
+}
+
+stop() {
+    # Remove list to host file
+    custom-sed -i "/$START_TAG/,/$END_TAG/d" "$HOST_FILE"
+
+    # Notify user
+    echo "${COLOR_GREEN}DISABLED!${COLOR_RESET}"
+}
+
+refresh() {
+    # Remove list to host file
+    custom-sed -i "/$START_TAG/,/$END_TAG/d" "$HOST_FILE"
+    start
+}
+
+# CONTROLE ARGUMENTS
+isArg=""
+
+while [ $# -gt 0 ] ; do
+    case "$1" in
+    --help)
+        usage
+        ;;
+    status)
+        isArg="1"
+        status
+        ;;
+    update)
+        isArg="1"
+        update
+        ;;
+    start)
+        isArg="1"
+        start
+        ;;
+    stop)
+        isArg="1"
+        stop
+        ;;
+    refresh)
+        isArg="1"
+        refresh
+        ;;
+    *)
+    esac
+    shift
+done
+
+if [ -z $isArg ] ; then
+    usage "Not enough arguments"
+fi
