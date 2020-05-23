@@ -8,3 +8,4 @@ class Shield < Formula
     prefix.install hosts.orig
     bin.install shield 
   end
+end
