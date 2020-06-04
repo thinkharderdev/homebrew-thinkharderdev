@@ -1,0 +1,104 @@
+[[https://unlicense.org/][https://img.shields.io/badge/license-Unlicense-blue.svg]]
+
+chrome-private.sh is a shell wrapper that simplifies using Google Chrome ephemerally.
+
+The core concept is the disposable profile that is created on demand and (optionally)
+discarded on exit. Executing Chrome through the wrapper allows clear segmentation
+and isolation of browsing sessions into directories that can be copied / moved /
+kept around / deleted when no longer required.
+
+Additionally, profiles can be preconfigured with user settings / 3rd party
+extensions and used as templates.
+
+I initially created chrome-private.sh in order to get some semblance of control over
+my browsing habits and be able to better manage the enormous volume of information
+I found myself exposed to every day. Now, it has become invaluable as it encourages
+me to set clear limits, while conveniently keeping all state related to a specific
+area of research isolated and also speeding up experimenting with widely-disparate
+configurations and ways of browsing.
+
+* Features
+
++ Disables caches, Flash, +referrers+
+
++ Disables 3D APIs / WebGL, GPU acceleration by default while allowing them to be
+  re-enabled through command-line switches.
+
++ Enables user-specified proxy and incognito mode through command-line switches
+
+Disabling referrers through a command-line switch seems to no longer do anything
+in Chrome, even though the switch is recognized. Use an extension like uMatrix.
+
+* Usage
+First, make sure CHROME variable is correct. The default value should be ok on
+Linux. You can set it directly in the script itself or in ~/.chrome-private.rc.
+If you are on macOS, you will need GNU mktemp (gmktemp) which you can get by
+installing coreutils from MacPorts or Homebrew. You will also need to set CHROME
+to the full path of the Google Chrome.app (or canary) binary. Example:
+
+#+BEGIN_SRC shell-script
+CHROME="${HOME}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+#+END_SRC
+
+If RAMDISK is set, it will be used instead of TMP (highly recommended).
+
+Sample session:
+
+#+BEGIN_SRC shell-script
+$ chrome-private.sh --keep --name core_profile
+Using new profile dir: core_profile
+Chrome PID: 64832
+
+# Proceed to configure the browser and install extensions.
+# uBlock Origin and uMatrix are highly recommended.
+#
+# After quitting the browser, core_profile/ can be moved / copied
+# and used as a root profile (template) for subsequent ephemeral
+# profiles. It can be set as such in ~/.chrome-private.rc
+# (ROOT_PROFILE_DIR) or passed to the script as an argument
+# (--root-profile).
+
+$ echo ROOT_PROFILE_DIR="~/core_profile" >> ~/.chrome-private.rc
+
+# Create a new ephemeral profile that will be auto-deleted on exit
+# It will be an exact clone of the root profile, with the same
+# configuration and installed extensions. Changes to this profile
+# will not affect the root.
+
+$ chrome-private.sh --delete
+Copying reference profile from: /Users/xristos/core_profile to: /tmp/chrome.priv.prof_biG9RWIIUB
+Chrome PID: 65011
+
+# Quit or CTRL-C browser
+
+Deleted: /tmp/chrome.priv.prof_biG9RWIIUB
+
+# If you don't pass --delete, the ephemeral profile directory will be renamed
+# to {name}.deleted on exit rather than deleted. If you pass --keep the profile
+# directory will neither be renamed nor deleted.
+
+$ chrome-private.sh
+
+Copying reference profile from: /Users/xristos/core_profile to: /tmp/chrome.priv.prof_paoMTlHzaw
+Chrome PID: 65075
+Renamed: /tmp/chrome.priv.prof_paoMTlHzaw
+
+#
+# A previous session can be resumed by using --profile
+#
+
+$ chrome-private.sh --profile chrome.priv.prof_paoMTlHzaw
+
+Using existing profile dir: chrome.priv.prof_paoMTlHzaw
+Chrome PID: 65184
+
+# Tabs that were open in that session can be restored in one go through
+# the History menu. A profile directory that is directly specified through
+# the --profile argument will never be renamed / deleted on exit.
+#+END_SRC
+
+* License
+This is free and unencumbered software released into the public domain.
+
+* Author
+xristos (AT) sdf (DOT) org
